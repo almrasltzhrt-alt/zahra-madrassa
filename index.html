@@ -1,0 +1,2036 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=()">
+    <title>زهرة المراسلة 🌸 - المنصة الشاملة لطلبة المراسلة</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    
+    <!-- استيراد مكتبات Firebase (SDKs) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-analytics.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc, query, orderBy, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";
+
+        // 1. المشروع الأساسي للروابط والإعلانات والخدمات (Zahra-Madrassa)
+        const mainFirebaseConfig = {
+            apiKey: "AIzaSyD9FXdPEgu0ywoTbZMaG8ABTgBPVmU1j7Y",
+            authDomain: "zahra-madrassa.firebaseapp.com",
+            projectId: "zahra-madrassa",
+            storageBucket: "zahra-madrassa.firebasestorage.app",
+            messagingSenderId: "690982087542",
+            appId: "1:690982087542:web:501bb6d31774ff912d2857",
+            measurementId: "G-18EH1L0D37"
+        };
+
+        // 2. المشروع السحابي المستقل الخاص بكلمة السر فقط (Zahra-Password)
+        const passwordFirebaseConfig = {
+            apiKey: "AIzaSyBPgI-QxYiQbseNtHjOmjjMnHb6ZmwwNH0",
+            authDomain: "zahra-password.firebaseapp.com",
+            projectId: "zahra-password",
+            storageBucket: "zahra-password.firebasestorage.app",
+            messagingSenderId: "1038340799346",
+            appId: "1:1038340799346:web:67955e4ca222b0cf1dfbeb",
+            measurementId: "G-LQZ021S0YZ"
+        };
+
+        // تهيئة المشروع الأساسي
+        const mainApp = initializeApp(mainFirebaseConfig, "mainApp");
+        const db = getFirestore(mainApp);
+
+        // تهيئة مشروع كلمة السر المستقل
+        const passwordApp = initializeApp(passwordFirebaseConfig, "passwordApp");
+        const passwordDb = getFirestore(passwordApp);
+
+        window.db = db;
+        window.passwordDb = passwordDb;
+        window.collection = collection;
+        window.addDoc = addDoc;
+        window.getDocs = getDocs;
+        window.deleteDoc = deleteDoc;
+        window.updateDoc = updateDoc;
+        window.doc = doc;
+        window.getDoc = getDoc;
+        window.query = query;
+        window.orderBy = orderBy;
+
+        // صوت النقر الاحترافي (Web Audio API)
+        window.playClickSound = function() {
+            let soundEnabled = localStorage.getItem('flower_click_sound') === 'true';
+            if (!soundEnabled) return;
+            try {
+                let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(650, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch(e) {}
+        };
+
+        const directLinks = {
+            link_facebook: "https://www.facebook.com/profile.php?id=61580146430101"
+        };
+
+        window.escapeHtml = function(value) {
+            return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#039;');
+        };
+
+        window.isSafeExternalUrl = function(urlValue) {
+            if (!urlValue || typeof urlValue !== 'string') return false;
+            const trimmed = urlValue.trim();
+            if (!trimmed || trimmed.includes('(') || trimmed.includes(')')) return false;
+            try {
+                const parsed = new URL(trimmed, window.location.href);
+                return ['http:', 'https:'].includes(parsed.protocol);
+            } catch (e) {
+                return false;
+            }
+        };
+
+        window.openDirectLink = function(key) {
+            playClickSound();
+            let url = directLinks[key] || "#";
+            if (window.isSafeExternalUrl(url)) {
+                window.open(url, '_blank', 'noopener,noreferrer');
+            } else {
+                showCustomModal("عذراً، الرابط غير متوفر حالياً.");
+            }
+        };
+
+        window.openCloudLink = function(urlValue) {
+            playClickSound();
+            if (!window.isSafeExternalUrl(urlValue)) {
+                showCustomModal("⏳ عذراً، لم يتم وضع أو إطلاق الرابط بعد، ترقبوه قريباً 🌸");
+            } else {
+                window.open(urlValue, '_blank', 'noopener,noreferrer');
+            }
+        };
+
+        window.showCustomModal = function(message) {
+            let modal = document.getElementById('customPinkModal');
+            let msgEl = document.getElementById('customModalMessage');
+            if (msgEl) msgEl.innerText = message;
+            if (modal) modal.style.display = 'flex';
+        };
+
+        window.closeCustomModal = function() {
+            playClickSound();
+            let modal = document.getElementById('customPinkModal');
+            if (modal) modal.style.display = 'none';
+        };
+
+        // ==========================================
+        // 🔑 جلب كلمة السر العادية من مشروع Zahra-Password المستقل
+        // ==========================================
+        const DEFAULT_DEVELOPER_PASSWORD = "zahra-2026";
+
+        function normalizeDeveloperPassword(value) {
+            return String(value ?? '').trim();
+        }
+
+        window.loadCloudPasswordConfig = async function() {
+            try {
+                const docRef = doc(passwordDb, "settings", "devAuth");
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const storedPlain = normalizeDeveloperPassword(data.devPassword);
+                    if (storedPlain) {
+                        window.cloudDevPassword = storedPlain;
+                    } else {
+                        await setDoc(docRef, { devPassword: DEFAULT_DEVELOPER_PASSWORD }, { merge: true });
+                        window.cloudDevPassword = DEFAULT_DEVELOPER_PASSWORD;
+                    }
+                } else {
+                    await setDoc(docRef, { devPassword: DEFAULT_DEVELOPER_PASSWORD });
+                    window.cloudDevPassword = DEFAULT_DEVELOPER_PASSWORD;
+                }
+
+                localStorage.setItem('fallback_dev_pass', window.cloudDevPassword || DEFAULT_DEVELOPER_PASSWORD);
+                localStorage.removeItem('fallback_dev_pass_hash');
+            } catch (e) {
+                console.warn("تنبيه: تعذر الاتصال بمشروع كلمة السر السحابي، سيتم استخدام القيمة المحلية.", e);
+                const fallbackSaved = normalizeDeveloperPassword(localStorage.getItem('fallback_dev_pass'));
+                window.cloudDevPassword = fallbackSaved || DEFAULT_DEVELOPER_PASSWORD;
+                localStorage.setItem('fallback_dev_pass', window.cloudDevPassword);
+                localStorage.removeItem('fallback_dev_pass_hash');
+            }
+        };
+
+        // دالة التحقق العادية لكلمة السر
+        window.checkPassword = async function() {
+            playClickSound();
+            let val = normalizeDeveloperPassword(document.getElementById('passInput').value);
+            if (!val) {
+                document.getElementById('passError').innerText = '❌ أدخل كلمة السر من فضلك!';
+                return;
+            }
+
+            try {
+                if (!window.cloudDevPassword) {
+                    await window.loadCloudPasswordConfig();
+                }
+
+                const expected = normalizeDeveloperPassword(window.cloudDevPassword) || DEFAULT_DEVELOPER_PASSWORD;
+                const localFallback = normalizeDeveloperPassword(localStorage.getItem('fallback_dev_pass'));
+                const allowedPasswords = new Set([
+                    DEFAULT_DEVELOPER_PASSWORD,
+                    expected,
+                    localFallback
+                ]);
+
+                if (allowedPasswords.has(val)) {
+                    window.cloudDevPassword = expected;
+                    localStorage.setItem('fallback_dev_pass', expected);
+                    closeLockModal();
+                    switchPage('page-developer');
+                } else {
+                    document.getElementById('passError').innerText = '❌ كلمة السر غير صحيحة!';
+                }
+            } catch (error) {
+                console.error("خطأ في عملية التحقق:", error);
+                document.getElementById('passError').innerText = '❌ حدث خطأ في النظام!';
+            }
+        };
+
+        // 1. الإعلانات سحابياً
+        window.loadCloudAnnouncements = function() {
+            let studentBox = document.getElementById('studentAnnouncementsContainer');
+            let devBox = document.getElementById('developerAnnouncementsList');
+            onSnapshot(collection(db, "announcements"), (snapshot) => {
+                if (snapshot.empty) {
+                    if (studentBox) studentBox.innerHTML = '<div class="announcement-card"><h4>إعلان هام</h4><p>لا توجد إعلانات جديدة حالياً.</p></div>';
+                    if (devBox) devBox.innerHTML = '<p style="color:var(--text-muted);">لا توجد إعلانات منشورة.</p>';
+                    return;
+                }
+                let sHtml = '', dHtml = '';
+                snapshot.forEach((docSnap) => {
+                    let d = docSnap.data();
+                    let id = docSnap.id;
+                    const safeTitle = window.escapeHtml(d.title || '');
+                    const safeText = window.escapeHtml(d.text || '');
+                    const safeDate = window.escapeHtml(d.date || '');
+                    sHtml += `
+                        <div class="announcement-card">
+                            <h4>📢 ${safeTitle}</h4>
+                            <p>${safeText}</p>
+                            <span style="font-size:11px; color:var(--text-muted); display:block; margin-top:8px;">📅 ${safeDate}</span>
+                        </div>
+                    `;
+                    dHtml += `
+                        <div class="announcement-card" style="margin-top:10px;">
+                            <h4>${safeTitle}</h4>
+                            <p>${safeText}</p>
+                            <button class="btn-action" style="background:#ef4444; padding:6px 12px; font-size:12px; width:auto; margin-top:8px;" onclick="playClickSound(); deleteCloudDoc('announcements', '${id}')">حذف</button>
+                        </div>
+                    `;
+                });
+                if (studentBox) studentBox.innerHTML = sHtml;
+                if (devBox) devBox.innerHTML = dHtml;
+            });
+        };
+
+        window.publishAnnouncement = async function() {
+            playClickSound();
+            let title = document.getElementById('devAnnTitle').value.trim();
+            let text = document.getElementById('devAnnText').value.trim();
+            if (!title || !text) { showCustomModal("املأ عنوان ونَص الإعلان من فضلك!"); return; }
+            try {
+                await addDoc(collection(db, "announcements"), { title, text, date: new Date().toLocaleString() });
+                document.getElementById('devAnnTitle').value = '';
+                document.getElementById('devAnnText').value = '';
+                showCustomModal("✅ تم نشر الإعلان سحابياً للعامة فوراً!");
+            } catch(e) { showCustomModal("خطأ: " + e.message); }
+        };
+
+        // 2. الأسئلة الشائعة سحابياً
+        window.loadCloudFaqs = function() {
+            let studentBox = document.getElementById('studentFaqContainer');
+            let devBox = document.getElementById('developerFaqsList');
+            onSnapshot(collection(db, "faqs"), (snapshot) => {
+                if (snapshot.empty) {
+                    if (studentBox) studentBox.innerHTML = '<div class="faq-item"><h4>س: كيف أتابع دراستي؟</h4><p>ج: عبر الأرضية الرقمية الرسمية.</p></div>';
+                    if (devBox) devBox.innerHTML = '<p style="color:var(--text-muted);">لا توجد أسئلة مضافة.</p>';
+                    return;
+                }
+                let sHtml = '', dHtml = '';
+                snapshot.forEach((docSnap) => {
+                    let d = docSnap.data();
+                    let id = docSnap.id;
+                    const safeQuestion = window.escapeHtml(d.question || '');
+                    const safeAnswer = window.escapeHtml(d.answer || '');
+                    sHtml += `
+                        <div class="faq-item">
+                            <h4>❓ ${safeQuestion}</h4>
+                            <p>💡 ${safeAnswer}</p>
+                        </div>
+                    `;
+                    dHtml += `
+                        <div class="faq-item" style="margin-top:10px;">
+                            <h4>${safeQuestion}</h4>
+                            <p>${safeAnswer}</p>
+                            <button class="btn-action" style="background:#ef4444; padding:6px 12px; font-size:12px; width:auto; margin-top:8px;" onclick="playClickSound(); deleteCloudDoc('faqs', '${id}')">حذف</button>
+                        </div>
+                    `;
+                });
+                if (studentBox) studentBox.innerHTML = sHtml;
+                if (devBox) devBox.innerHTML = dHtml;
+            });
+        };
+
+        window.publishFaq = async function() {
+            playClickSound();
+            let question = document.getElementById('devFaqQuestion').value.trim();
+            let answer = document.getElementById('devFaqAnswer').value.trim();
+            if (!question || !answer) { showCustomModal("املأ السؤال والجواب من فضلك!"); return; }
+            try {
+                await addDoc(collection(db, "faqs"), { question, answer });
+                document.getElementById('devFaqQuestion').value = '';
+                document.getElementById('devFaqAnswer').value = '';
+                showCustomModal("✅ تمت إضافة السؤال الشائع سحابياً!");
+            } catch(e) { showCustomModal("خطأ: " + e.message); }
+        };
+
+        // 3. الأسعار سحابياً
+        window.loadCloudPrices = function() {
+            let studentBox = document.getElementById('studentPricesContainer');
+            let devBox = document.getElementById('developerPricesList');
+            onSnapshot(collection(db, "prices"), (snapshot) => {
+                if (snapshot.empty) {
+                    if (studentBox) studentBox.innerHTML = '<div class="price-item"><h4>لا توجد عروض مضافة حالياً</h4></div>';
+                    if (devBox) devBox.innerHTML = '<p style="color:var(--text-muted);">لا توجد عروض مضافة.</p>';
+                    return;
+                }
+                let sHtml = '', dHtml = '';
+                snapshot.forEach((docSnap) => {
+                    let d = docSnap.data();
+                    let id = docSnap.id;
+                    const safeTitle = window.escapeHtml(d.title || '');
+                    const safePrice = window.escapeHtml(d.price || '');
+                    sHtml += `
+                        <div class="price-item">
+                            <h4>🏷️ ${safeTitle}</h4>
+                            <p style="font-size:18px; font-weight:bold; color:var(--primary); margin-top:5px;">السعر: ${safePrice}</p>
+                        </div>
+                    `;
+                    dHtml += `
+                        <div class="price-item" style="margin-top:10px;">
+                            <h4>${safeTitle}</h4>
+                            <p style="color:var(--primary); font-weight:bold;">السعر: ${safePrice}</p>
+                            <button class="btn-action" style="background:#ef4444; padding:6px 12px; font-size:12px; width:auto; margin-top:8px;" onclick="playClickSound(); deleteCloudDoc('prices', '${id}')">حذف</button>
+                        </div>
+                    `;
+                });
+                if (studentBox) studentBox.innerHTML = sHtml;
+                if (devBox) devBox.innerHTML = dHtml;
+            });
+        };
+
+        window.publishOffer = async function() {
+            playClickSound();
+            let title = document.getElementById('devOfferTitle').value.trim();
+            let price = document.getElementById('devOfferPrice').value.trim();
+            if (!title || !price) { showCustomModal("املأ اسم الخدمة والسعر!"); return; }
+            try {
+                await addDoc(collection(db, "prices"), { title, price });
+                document.getElementById('devOfferTitle').value = '';
+                document.getElementById('devOfferPrice').value = '';
+                showCustomModal("✅ تمت إضافة العرض وسعره سحابياً!");
+            } catch(e) { showCustomModal("خطأ: " + e.message); }
+        };
+
+        // 4. الفروض سحابياً
+        window.loadCloudAssignments = function() {
+            let studentBox = document.getElementById('studentAssignmentsContainer');
+            let devBox = document.getElementById('developerAssignmentsList');
+            onSnapshot(collection(db, "assignments"), (snapshot) => {
+                if (snapshot.empty) {
+                    if (studentBox) studentBox.innerHTML = '<div class="announcement-card"><h4>لا توجد فروض مضافة حالياً</h4></div>';
+                    if (devBox) devBox.innerHTML = '<p style="color:var(--text-muted);">لا توجد فروض مضافة.</p>';
+                    return;
+                }
+                let sHtml = '', dHtml = '';
+                snapshot.forEach((docSnap) => {
+                    let d = docSnap.data();
+                    let id = docSnap.id;
+                    const safeTitle = window.escapeHtml(d.title || '');
+                    const safeStatus = window.escapeHtml(d.status || '');
+                    const safeStartDate = window.escapeHtml(d.startDate || '');
+                    const safeEndDate = window.escapeHtml(d.endDate || '');
+                    sHtml += `
+                        <div class="announcement-card">
+                            <h4 style="color: var(--primary);">📝 ${safeTitle}</h4>
+                            <p>📌 <strong>الحالة:</strong> <span style="color:var(--primary); font-weight:bold;">${safeStatus}</span></p>
+                            <p>⏳ <strong>تاريخ الانطلاق:</strong> ${safeStartDate}</p>
+                            <p>🏁 <strong>تاريخ الانتهاء:</strong> ${safeEndDate}</p>
+                        </div>
+                    `;
+                    dHtml += `
+                        <div class="announcement-card" style="margin-top:10px;">
+                            <h4>${safeTitle}</h4>
+                            <p>الحالة: ${safeStatus} | الانطلاق: ${safeStartDate} | الانتهاء: ${safeEndDate}</p>
+                            <button class="btn-action" style="background:#ef4444; padding:6px 12px; font-size:12px; width:auto; margin-top:8px;" onclick="playClickSound(); deleteCloudDoc('assignments', '${id}')">حذف</button>
+                        </div>
+                    `;
+                });
+                if (studentBox) studentBox.innerHTML = sHtml;
+                if (devBox) devBox.innerHTML = dHtml;
+            });
+        };
+
+        window.publishAssignment = async function() {
+            playClickSound();
+            let title = document.getElementById('devAssignTitle').value.trim();
+            let status = document.getElementById('devAssignStatus').value.trim();
+            let startDate = document.getElementById('devAssignStart').value.trim();
+            let endDate = document.getElementById('devAssignEnd').value.trim();
+
+            if (!title || !status || !startDate || !endDate) { showCustomModal("املأ جميع خانات الفرض من فضلك!"); return; }
+            try {
+                await addDoc(collection(db, "assignments"), { title, status, startDate, endDate });
+                document.getElementById('devAssignTitle').value = '';
+                document.getElementById('devAssignStatus').value = '';
+                document.getElementById('devAssignStart').value = '';
+                document.getElementById('devAssignEnd').value = '';
+                showCustomModal("✅ تم إضافة الفرض سحابياً بنجاح!");
+            } catch(e) { showCustomModal("خطأ: " + e.message); }
+        };
+
+        // 5. الإعدادات والروابط سحابياً
+        window.loadCloudSettings = function() {
+            onSnapshot(collection(db, "settings"), (snapshot) => {
+                snapshot.forEach((docSnap) => {
+                    let d = docSnap.data();
+                    window.currentDocId = docSnap.id;
+                    if (d.academicYear) {
+                        let el = document.getElementById('displayAcademicYear');
+                        if (el) el.innerText = " | " + d.academicYear;
+                    }
+                    if (d.summonLink !== undefined) window.cloudSummonLink = d.summonLink;
+                    if (d.elecExamLink !== undefined) window.cloudElecExamLink = d.elecExamLink;
+                    if (d.regLink !== undefined) window.cloudRegLink = d.regLink;
+                    if (d.acceptLink !== undefined) window.cloudAcceptLink = d.acceptLink;
+                    if (d.middleLink !== undefined) window.cloudMiddleLink = d.middleLink;
+                    if (d.as1Link !== undefined) window.cloudAs1Link = d.as1Link;
+                    if (d.as2Link !== undefined) window.cloudAs2Link = d.as2Link;
+                    if (d.as3Link !== undefined) window.cloudAs3Link = d.as3Link;
+                });
+            });
+        };
+
+        window.saveAppSettings = async function() {
+            playClickSound();
+            let year = document.getElementById('devAcademicYear').value.trim();
+            let reg = document.getElementById('devRegLink').value.trim();
+            let accept = document.getElementById('devAcceptLink').value.trim();
+            let summon = document.getElementById('devSummonLink').value.trim();
+            let elec = document.getElementById('devElecExamLink').value.trim();
+            let middle = document.getElementById('devMiddleLink').value.trim();
+            let as1 = document.getElementById('devAs1Link').value.trim();
+            let as2 = document.getElementById('devAs2Link').value.trim();
+            let as3 = document.getElementById('devAs3Link').value.trim();
+
+            try {
+                let dataToSave = {
+                    academicYear: year,
+                    regLink: reg,
+                    acceptLink: accept,
+                    summonLink: summon,
+                    elecExamLink: elec,
+                    middleLink: middle,
+                    as1Link: as1,
+                    as2Link: as2,
+                    as3Link: as3
+                };
+
+                if (window.currentDocId) {
+                    await updateDoc(doc(db, "settings", window.currentDocId), dataToSave);
+                } else {
+                    await addDoc(collection(db, "settings"), dataToSave);
+                }
+                showCustomModal("✅ تم حفظ إعدادات الروابط والتسجيل والأرضية سحابياً بنجاح!");
+            } catch(e) { showCustomModal("خطأ: " + e.message); }
+        };
+
+        window.deleteCloudDoc = async function(colName, docId) {
+            if (confirm("هل أنت متأكد من الحذف؟")) {
+                try {
+                    await deleteDoc(doc(db, colName, docId));
+                    showCustomModal("تم الحذف بنجاح!");
+                } catch (e) { showCustomModal("خطأ في الحذف."); }
+            }
+        };
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadCloudPasswordConfig();
+            if (typeof loadCloudAnnouncements === 'function') loadCloudAnnouncements();
+            if (typeof loadCloudFaqs === 'function') loadCloudFaqs();
+            if (typeof loadCloudPrices === 'function') loadCloudPrices();
+            if (typeof loadCloudAssignments === 'function') loadCloudAssignments();
+            if (typeof loadCloudSettings === 'function') loadCloudSettings();
+        });
+    </script>
+
+    <style>
+        :root {
+            --bg-color: #fff7fb;
+            --card-bg: rgba(255, 255, 255, 0.9);
+            --primary: #db2777;
+            --primary-hover: #be185d;
+            --accent: #fb7185;
+            --text-main: #1f2937;
+            --text-muted: #4b5563;
+            --border: rgba(219, 39, 119, 0.15);
+            --nav-bg: rgba(255, 255, 255, 0.9);
+            --shadow: 0 18px 40px -15px rgba(219, 39, 119, 0.2);
+        }
+
+        body.dark-mode {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --primary: #f472b6;
+            --primary-hover: #ec4899;
+            --accent: #fb7185;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --border: #334155;
+            --nav-bg: rgba(30, 41, 59, 0.95);
+            --shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Cairo', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, transform 0.2s ease;
+        }
+
+        body {
+            background:
+                radial-gradient(circle at top right, rgba(251, 113, 133, 0.18), transparent 24%),
+                radial-gradient(circle at bottom left, rgba(168, 85, 247, 0.14), transparent 28%),
+                radial-gradient(circle at center, rgba(250, 204, 21, 0.06), transparent 30%),
+                var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            direction: rtl;
+            padding-bottom: 80px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        body::before,
+        body::after {
+            content: "";
+            position: fixed;
+            inset: auto auto 10% -8%;
+            width: 380px;
+            height: 380px;
+            background: radial-gradient(circle, rgba(253, 164, 175, 0.42) 0%, rgba(253, 164, 175, 0.14) 30%, transparent 72%);
+            filter: blur(18px);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: driftFlower 18s ease-in-out infinite alternate;
+        }
+
+        body::after {
+            inset: 12% -10% auto auto;
+            width: 330px;
+            height: 330px;
+            background: radial-gradient(circle, rgba(244, 114, 182, 0.34) 0%, rgba(244, 114, 182, 0.12) 30%, transparent 72%);
+            animation-delay: 1s;
+        }
+
+        .floating-flowers {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+            filter: saturate(1.35) contrast(1.08);
+        }
+
+        .flower-petals {
+            position: absolute;
+            width: 18px;
+            height: 18px;
+            background: radial-gradient(circle at 30% 30%, #fffafc 0%, #fad2e8 32%, #f27db6 58%, #cf2579 100%);
+            border-radius: 50% 50% 60% 50%;
+            box-shadow: 0 0 16px rgba(219, 39, 119, 0.45), 0 0 24px rgba(251, 146, 60, 0.2);
+            animation: petalFloat linear infinite;
+            opacity: 0.9;
+            transform-origin: center center;
+        }
+
+        .flower-petals:nth-child(odd) {
+            background: radial-gradient(circle at 30% 30%, #fffdf6 0%, #fde68a 35%, #f59e0b 60%, #db7700 100%);
+            box-shadow: 0 0 16px rgba(245, 158, 11, 0.45), 0 0 26px rgba(255, 200, 87, 0.22);
+        }
+
+        .flower-petals:nth-child(3n) {
+            background: radial-gradient(circle at 30% 30%, #fff4f8 0%, #f9a8d4 35%, #ec4899 58%, #bf136f 100%);
+        }
+
+        .flower-petals:nth-child(5n) {
+            background: radial-gradient(circle at 30% 30%, #fff4f8 0%, #f9d7e9 30%, #d946ef 60%, #7c2d12 100%);
+        }
+
+        @keyframes petalFloat {
+            0% {
+                transform: translate3d(0, 0, 0) rotate(0deg) scale(0.7);
+                opacity: 0;
+            }
+            15% { opacity: 1; }
+            50% {
+                transform: translate3d(55px, -120px, 0) rotate(180deg) scale(1.35);
+                opacity: 1;
+            }
+            100% {
+                transform: translate3d(-30px, -260px, 0) rotate(340deg) scale(0.95);
+                opacity: 0;
+            }
+        }
+
+        @keyframes driftFlower {
+            0% { transform: translate(0, 0) scale(1); }
+            100% { transform: translate(18px, -20px) scale(1.08); }
+        }
+
+        /* نافذة التنبيه الوردية اللطيفة */
+        #customPinkModal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 99999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .pink-modal-card {
+            background: var(--card-bg);
+            border: 2px solid var(--primary);
+            border-radius: 24px;
+            padding: 30px 25px;
+            max-width: 340px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(219, 39, 119, 0.25);
+            animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.7); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        #page-lock {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(5px);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .lock-card {
+            background: var(--card-bg);
+            border: 2px solid var(--border);
+            border-radius: 24px;
+            padding: 30px;
+            max-width: 360px;
+            width: 100%;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+        .lock-input {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            margin: 15px 0;
+            text-align: center;
+            font-size: 16px;
+            background: var(--bg-color);
+            color: var(--text-main);
+            outline: none;
+        }
+        .lock-input:focus {
+            border-color: var(--primary);
+        }
+
+        header {
+            background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(255,240,247,0.88));
+            border-bottom: 2px solid rgba(219,39,119,0.12);
+            padding: 22px 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 18px 30px rgba(219, 39, 119, 0.08);
+            backdrop-filter: blur(10px);
+        }
+
+        header::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.3), rgba(255,255,255,0.08));
+            pointer-events: none;
+        }
+
+        header h1 {
+            font-size: 26px;
+            font-weight: 900;
+            color: var(--primary);
+            margin-bottom: 4px;
+            letter-spacing: -0.5px;
+        }
+
+        header p {
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .main-container {
+            max-width: 980px;
+            margin: 30px auto;
+            padding: 0 20px;
+            width: 100%;
+            flex: 1;
+            position: relative;
+            z-index: 1;
+        }
+
+        .page {
+            display: none;
+            animation: fadeIn 0.4s ease-in-out forwards;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,246,250,0.95));
+            border: 1px solid rgba(219, 39, 119, 0.12);
+            border-radius: 26px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            position: relative;
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(120deg, rgba(255,255,255,0.08), rgba(255,255,255,0.35), rgba(255,255,255,0.08));
+            pointer-events: none;
+        }
+
+        .hero-panel {
+            background: linear-gradient(135deg, rgba(219, 39, 119, 0.18), rgba(236, 72, 153, 0.12), rgba(255,255,255,0.96));
+            border: 1px solid var(--border);
+            border-radius: 30px;
+            padding: 28px;
+            margin-bottom: 22px;
+            box-shadow: 0 30px 60px -25px rgba(219, 39, 119, 0.28);
+            display: grid;
+            grid-template-columns: 1.4fr 0.9fr;
+            gap: 20px;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-panel::before,
+        .hero-panel::after {
+            content: "";
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.12);
+            filter: blur(10px);
+        }
+
+        .hero-panel::before {
+            top: -50px;
+            right: -40px;
+        }
+
+        .hero-panel::after {
+            bottom: -60px;
+            left: -30px;
+        }
+
+        .hero-copy .eyebrow {
+            display: inline-block;
+            background: rgba(219, 39, 119, 0.12);
+            color: var(--primary);
+            border: 1px solid rgba(219, 39, 119, 0.14);
+            padding: 8px 14px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            margin-bottom: 12px;
+        }
+
+        .hero-copy h2 {
+            font-size: clamp(28px, 4vw, 42px);
+            color: var(--text-main);
+            line-height: 1.2;
+            margin-bottom: 12px;
+        }
+
+        .hero-copy p {
+            color: var(--text-muted);
+            font-size: 15px;
+            line-height: 1.9;
+            margin-bottom: 18px;
+            font-weight: 600;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .hero-actions .btn-action {
+            width: auto;
+            min-width: 155px;
+            margin-top: 0;
+        }
+
+        .hero-visual {
+            position: relative;
+            min-height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .flower-scene {
+            position: relative;
+            width: 230px;
+            height: 230px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bloom {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.9) 0%, rgba(253, 186, 116, 0.8) 18%, rgba(251, 113, 133, 0.7) 38%, rgba(219, 39, 119, 0.45) 72%, rgba(236, 72, 153, 0.2) 100%);
+            box-shadow: 0 25px 55px rgba(219, 39, 119, 0.23);
+            animation: floatBloom 5.5s ease-in-out infinite;
+        }
+
+        .bloom::before,
+        .bloom::after {
+            content: "";
+            position: absolute;
+            inset: 24px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.26);
+            border: 1px solid rgba(255,255,255,0.6);
+        }
+
+        .bloom::after {
+            inset: 56px;
+            background: rgba(255,255,255,0.68);
+        }
+
+        .petal {
+            position: absolute;
+            width: 52px;
+            height: 70px;
+            background: linear-gradient(180deg, #fffdf8, #ffd5e7 35%, #f9a8d4 100%);
+            border-radius: 70% 70% 60% 60%;
+            box-shadow: inset 0 -8px 12px rgba(190, 24, 93, 0.1);
+            border: 1px solid rgba(190, 24, 93, 0.15);
+            top: 20px;
+            left: 50%;
+            transform-origin: 50% 100%;
+            margin-left: -26px;
+        }
+
+        .petal:nth-child(1) { transform: rotate(0deg) translateY(-8px); }
+        .petal:nth-child(2) { transform: rotate(45deg) translateY(-8px); }
+        .petal:nth-child(3) { transform: rotate(90deg) translateY(-8px); }
+        .petal:nth-child(4) { transform: rotate(135deg) translateY(-8px); }
+        .petal:nth-child(5) { transform: rotate(180deg) translateY(-8px); }
+        .petal:nth-child(6) { transform: rotate(225deg) translateY(-8px); }
+        .petal:nth-child(7) { transform: rotate(270deg) translateY(-8px); }
+        .petal:nth-child(8) { transform: rotate(315deg) translateY(-8px); }
+
+        .flower-core {
+            position: absolute;
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fffdee, #fcd34d 30%, #f59e0b 100%);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.35);
+            z-index: 2;
+        }
+
+        .mini-panel {
+            position: absolute;
+            z-index: 3;
+            left: 10px;
+            bottom: 12px;
+            width: 210px;
+            padding: 16px 18px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.82);
+            border: 1px solid rgba(219,39,119,0.12);
+            box-shadow: 0 18px 34px rgba(15,23,42,0.08);
+            backdrop-filter: blur(10px);
+        }
+
+        .mini-panel .top-line {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .mini-panel .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+        }
+
+        .mini-panel h4 {
+            font-size: 18px;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .mini-panel ul {
+            list-style: none;
+            display: grid;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        @keyframes floatBloom {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-10px) scale(1.03); }
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .stat-box {
+            background: rgba(255,255,255,0.8);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px 14px;
+            text-align: center;
+            box-shadow: 0 12px 24px rgba(15,23,42,0.02);
+        }
+
+        .stat-box strong {
+            display: block;
+            font-size: 28px;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-box span {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .settings-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-top: 18px;
+        }
+
+        .setting-panel {
+            background: rgba(255,255,255,0.7);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+            box-shadow: 0 12px 24px rgba(15,23,42,0.04);
+        }
+
+        .setting-panel h4 {
+            color: var(--primary);
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .quick-action {
+            display: block;
+            width: 100%;
+            padding: 12px 13px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: linear-gradient(135deg, rgba(219,39,119,0.08), rgba(236,72,153,0.06));
+            color: var(--text-main);
+            font-size: 14px;
+            font-weight: 700;
+            text-align: center;
+            margin-top: 10px;
+            cursor: pointer;
+        }
+
+        .quick-action:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+        }
+
+        .setting-panel .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+        }
+
+        .setting-panel .setting-item:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        body.premium-accent {
+            background:
+                radial-gradient(circle at 15% 20%, rgba(255, 200, 226, 0.75), transparent 18%),
+                radial-gradient(circle at 80% 12%, rgba(251, 146, 60, 0.18), transparent 22%),
+                radial-gradient(circle at 25% 75%, rgba(253, 164, 175, 0.2), transparent 18%),
+                linear-gradient(180deg, #fffafc, #fff3f8 42%, #fff8f5 100%);
+        }
+
+        body.premium-accent .hero-panel {
+            background: linear-gradient(135deg, rgba(251, 113, 133, 0.24), rgba(236, 72, 153, 0.12), rgba(255,255,255,0.98));
+        }
+
+        body.premium-accent .btn-action {
+            box-shadow: 0 18px 30px rgba(219,39,119,0.18);
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 22px;
+        }
+
+        .stat-box {
+            background: rgba(255,255,255,0.8);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px 14px;
+            text-align: center;
+            box-shadow: 0 12px 24px rgba(15,23,42,0.02);
+        }
+
+        .stat-box strong {
+            display: block;
+            font-size: 28px;
+            color: var(--primary);
+            margin-bottom: 4px;
+        }
+
+        .stat-box span {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .page-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 22px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+        }
+
+        .back-arrow-btn {
+            background: var(--bg-color);
+            border: 1px solid var(--border);
+            color: var(--primary);
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        }
+
+        .back-arrow-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+
+        .page-header h2 {
+            font-size: 21px;
+            color: var(--primary);
+            margin: 0;
+            font-weight: 800;
+        }
+
+        .grid-menu {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 18px;
+        }
+
+        .btn-card {
+            background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,247,250,0.95));
+            border: 2px solid var(--border);
+            border-radius: 22px;
+            padding: 22px 18px;
+            text-align: center;
+            cursor: pointer;
+            color: var(--text-main);
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            box-shadow: var(--shadow);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-card::after {
+            content: "";
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0.7;
+        }
+
+        .btn-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-5px) scale(1.01);
+            box-shadow: 0 18px 36px rgba(219, 39, 119, 0.18);
+        }
+
+        .btn-card span {
+            font-size: 36px;
+        }
+
+        .btn-action {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            text-align: center;
+            margin-top: 15px;
+            box-shadow: 0 10px 22px rgba(219, 39, 119, 0.25);
+            text-decoration: none;
+        }
+
+        .btn-action:hover {
+            background: linear-gradient(135deg, var(--primary-hover), var(--primary));
+            transform: translateY(-2px);
+        }
+
+        .btn-whatsapp {
+            background: #22c55e !important;
+            box-shadow: 0 6px 15px rgba(34, 197, 94, 0.3) !important;
+        }
+        .btn-whatsapp:hover {
+            background: #16a34a !important;
+        }
+
+        .btn-facebook {
+            background: #2563eb !important;
+            box-shadow: 0 6px 15px rgba(37, 99, 235, 0.3) !important;
+        }
+        .btn-facebook:hover {
+            background: #1d4ed8 !important;
+        }
+
+        .info-box {
+            background: linear-gradient(135deg, rgba(219, 39, 119, 0.08), rgba(251, 113, 133, 0.05));
+            border-right: 5px solid var(--primary);
+            padding: 18px;
+            border-radius: 16px;
+            margin-bottom: 22px;
+            font-size: 14px;
+            line-height: 1.8;
+            font-weight: 600;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.5);
+        }
+
+        .announcement-card, .faq-item, .request-item, .price-item {
+            background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,247,250,0.9));
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: 18px;
+            margin-bottom: 14px;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.03);
+        }
+
+        .announcement-card h4, .faq-item h4, .request-item h4, .price-item h4 {
+            color: var(--primary);
+            margin-bottom: 8px;
+            font-weight: 800;
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--nav-bg);
+            backdrop-filter: blur(10px);
+            border-top: 2px solid var(--border);
+            display: flex;
+            justify-content: space-around;
+            padding: 12px 0;
+            z-index: 1000;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+        }
+
+        .nav-item {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 700;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+
+        .nav-item span {
+            font-size: 22px;
+        }
+
+        .nav-item.active, .nav-item:hover {
+            color: var(--primary);
+        }
+
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 58px;
+            height: 30px;
+        }
+
+        .switch input { opacity: 0; width: 0; height: 0; }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--border);
+            transition: .3s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(28px); }
+
+        .app-footer {
+            text-align: center;
+            padding: 20px;
+            background: var(--card-bg);
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        
+        @media (max-width: 640px) {
+            .hero-panel {
+                grid-template-columns: 1fr;
+                padding: 22px 18px;
+            }
+
+            .flower-scene {
+                width: 200px;
+                height: 200px;
+            }
+
+            .bloom {
+                width: 150px;
+                height: 150px;
+            }
+
+            .mini-panel {
+                width: 180px;
+                left: 0;
+            }
+
+            .stat-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+            }
+
+            .hero-actions .btn-action {
+                width: 100%;
+            }
+
+            .grid-menu {
+                grid-template-columns: 1fr;
+            }
+
+            .card {
+                padding: 22px 18px;
+            }
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            margin-bottom: 14px;
+            background: var(--bg-color);
+            color: var(--text-main);
+            font-size: 14px;
+            outline: none;
+        }
+        .form-control:focus {
+            border-color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="floating-flowers" aria-hidden="true">
+        <span class="flower-petals" style="left: 8%; top: 12%; animation-duration: 18s; animation-delay: 0s;"></span>
+        <span class="flower-petals" style="left: 16%; top: 48%; animation-duration: 22s; animation-delay: 1s;"></span>
+        <span class="flower-petals" style="left: 24%; top: 68%; animation-duration: 20s; animation-delay: 2s;"></span>
+        <span class="flower-petals" style="left: 36%; top: 18%; animation-duration: 26s; animation-delay: 0.4s;"></span>
+        <span class="flower-petals" style="left: 48%; top: 60%; animation-duration: 19s; animation-delay: 2.1s;"></span>
+        <span class="flower-petals" style="left: 62%; top: 30%; animation-duration: 24s; animation-delay: 1.5s;"></span>
+        <span class="flower-petals" style="left: 72%; top: 16%; animation-duration: 18s; animation-delay: 0.9s;"></span>
+        <span class="flower-petals" style="left: 78%; top: 58%; animation-duration: 27s; animation-delay: 3s;"></span>
+        <span class="flower-petals" style="left: 89%; top: 36%; animation-duration: 21s; animation-delay: 0.2s;"></span>
+        <span class="flower-petals" style="left: 92%; top: 72%; animation-duration: 25s; animation-delay: 2.8s;"></span>
+    </div>
+
+    <!-- نافذة التنبيه الوردية اللطيفة -->
+    <div id="customPinkModal">
+        <div class="pink-modal-card">
+            <h3 style="color: var(--primary); margin-bottom: 12px; font-size: 20px;">🌸 زهرة المراسلة 🌸</h3>
+            <p id="customModalMessage" style="font-size: 14px; color: var(--text-main); line-height: 1.7; margin-bottom: 22px; font-weight: 600;"></p>
+            <button class="btn-action" style="margin-top: 0; padding: 12px;" onclick="closeCustomModal()">حسناً ❤️</button>
+        </div>
+    </div>
+
+    <!-- نافذة إدخال كلمة سر حساب المطور العادية -->
+    <div id="page-lock">
+        <div class="lock-card">
+            <h2>🌸 حساب المطور - زهرة 🌸</h2>
+            <p style="margin: 10px 0; font-size: 13px; color: var(--text-muted);">أدخل كلمة السر الخاصة بك للمتابعة</p>
+            <input type="password" id="passInput" class="lock-input" placeholder="كلمة السر...">
+            <button class="btn-action" style="margin-top: 5px;" onclick="checkPassword()">دخول آمن</button>
+            <button class="btn-action" style="background: #64748b; margin-top: 10px;" onclick="playClickSound(); closeLockModal()">إلغاء</button>
+            <div id="passError" style="color: #ef4444; font-size: 13px; margin-top: 10px; font-weight: 700;"></div>
+        </div>
+    </div>
+
+    <header>
+        <h1>🌸 زهرة المراسلة 🌸</h1>
+        <p>المنصة الشاملة لطلبة المراسلة - معاً نحو التفوق والنجاح <span id="displayAcademicYear" style="color:var(--primary); font-weight:900;"></span></p>
+    </header>
+
+    <div class="main-container">
+
+        <!-- 1. الصفحة الرئيسية -->
+        <div id="page-home" class="page active">
+            <div class="hero-panel">
+                <div class="hero-copy">
+                    <span class="eyebrow">منصة تعليمية ذكية ✨</span>
+                    <h2>زهرة المراسلة</h2>
+                    <p>مركزك المفضل لكل ما يخص الدراسة، الروابط الرسمية، الفروض، العروض، والأخبار المهمة، بطريقة أنيقة وسريعة ومبهرة تليق بطلبة اليوم.</p>
+                    <div class="hero-actions">
+                        <button class="btn-action" onclick="playClickSound(); switchPage('page-self-assignments')">📝 الفروض</button>
+                        <button class="btn-action" style="background: linear-gradient(135deg, #8b5cf6, #ec4899);" onclick="playClickSound(); switchPage('page-digital-platform')">🌐 المنصات</button>
+                    </div>
+                </div>
+                <div class="hero-visual" aria-label="زهرة حديثة">
+                    <div class="flower-scene">
+                        <div class="bloom">
+                            <span class="petal"></span>
+                            <span class="petal"></span>
+                            <span class="petal"></span>
+                            <span class="petal"></span>
+                            <span class="petal"></span>
+                            <span class="petal"></span>
+                            <span class="petal"></span>
+                            <span class="petal"></span>
+                        </div>
+                        <div class="flower-core"></div>
+                        <div class="mini-panel">
+                            <div class="top-line">
+                                <span>Online</span>
+                                <span class="dot"></span>
+                            </div>
+                            <h4>أهم الخدمات</h4>
+                            <ul>
+                                <li>📢 إعلانات</li>
+                                <li>📚 دروس</li>
+                                <li>✅ فروض</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <strong>24/7</strong>
+                    <span>دعم مستمر</span>
+                </div>
+                <div class="stat-box">
+                    <strong>12+</strong>
+                    <span>خدمات تعليمية</span>
+                </div>
+                <div class="stat-box">
+                    <strong>100%</strong>
+                    <span>تجربة سهلة</span>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2>مرحباً بك في فضاء طلبة المراسلة 🌸</h2>
+                <div class="info-box">
+                    طريقك للنجاح يبدأ من هنا. جميع الخدمات الدراسية، الروابط الرسمية، والفروض أصبحت منظمة ومتاحة بين يديك بكل سهولة.
+                </div>
+            </div>
+
+            <div class="grid-menu">
+                <div class="btn-card" onclick="playClickSound(); switchPage('page-announcements')">
+                    <span>📢</span>
+                    الإعلانات والهام
+                </div>
+                <div class="btn-card" style="border-color: #8b5cf6;" onclick="playClickSound(); switchPage('page-coefficients')">
+                    <span>📊</span>
+                    المعاملات الدراسية
+                </div>
+                <div class="btn-card" onclick="playClickSound(); switchPage('page-self-assignments')">
+                    <span>📝</span>
+                    الفروض والتقويمات
+                </div>
+                <div class="btn-card" onclick="playClickSound(); switchPage('page-digital-platform')">
+                    <span>🌐</span>
+                    الأرضية الرقمية للدروس
+                </div>
+                <div class="btn-card" style="border-color: #f59e0b;" onclick="playClickSound(); switchPage('page-prices')">
+                    <span>🏷️</span>
+                    قائمة الأسعار والعروض
+                </div>
+                <div class="btn-card" style="border-color: #3b82f6;" onclick="openCloudLink(window.cloudRegLink)">
+                    <span>📝</span>
+                    التسجيل عبر الإنترنت
+                </div>
+                <div class="btn-card" style="border-color: #10b981;" onclick="openCloudLink(window.cloudAcceptLink)">
+                    <span>✅</span>
+                    التأكد من التسجيل
+                </div>
+                <div class="btn-card" style="border-color: #06b6d4;" onclick="playClickSound(); switchPage('page-other-links')">
+                    <span>🔗</span>
+                    روابط هامة أخرى
+                </div>
+                <div class="btn-card" onclick="playClickSound(); switchPage('page-faq')">
+                    <span>❓</span>
+                    الأسئلة الشائعة
+                </div>
+                <div class="btn-card" onclick="playClickSound(); switchPage('page-study')">
+                    <span>📚</span>
+                    الخدمات الدراسية
+                </div>
+                <div class="btn-card" onclick="playClickSound(); switchPage('page-contact')">
+                    <span>🌸</span>
+                    التواصل والدعم
+                </div>
+                <div class="btn-card" style="border-color: var(--primary);" onclick="playClickSound(); switchPage('page-service-request')">
+                    <span>📥</span>
+                    طلب خدمة خاصة
+                </div>
+            </div>
+        </div>
+
+        <!-- صفحة روابط أخرى -->
+        <div id="page-other-links" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>روابط هامة أخرى</h2>
+                </div>
+                <div class="info-box">
+                    اختر الخدمة أو الرابط المطلوب أدناه:
+                </div>
+                <button class="btn-action" style="background:#0284c7;" onclick="openCloudLink(window.cloudSummonLink)">
+                    📄 رابط استخراج استدعاء
+                </button>
+                <button class="btn-action" style="background:#0d9488;" onclick="openCloudLink(window.cloudElecExamLink)">
+                    💻 رابط الفرض الالكتروني
+                </button>
+            </div>
+        </div>
+
+        <!-- صفحة المعاملات -->
+        <div id="page-coefficients" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>جدول معاملات المواد لجميع المستويات والشعب</h2>
+                </div>
+                <div class="info-box">
+                    🌸 <strong>زهرة المراسلة</strong><br>
+                    دليلك الشامل لمعاملات المواد لجميع الأطوار والشعب الدراسية.
+                </div>
+
+                <div class="announcement-card" style="border-color: #8b5cf6;">
+                    <h3 style="color: var(--primary); margin-bottom: 10px;">📗 مرحلة التعليم المتوسط</h3>
+                    <h4 style="color: var(--text-main);">أولى متوسط:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">لغة عربية (2)، رياضيات (2)، علوم فيزيائية وتكنولوجيا (1)، لغة فرنسية (2).</p>
+                    <h4 style="color: var(--text-main);">ثانية متوسط:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">لغة عربية (3)، رياضيات (2)، علوم الطبيعة والحياة (1)، تاريخ وجغرافيا (2).</p>
+                    <h4 style="color: var(--text-main);">ثالثة متوسط:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">لغة عربية (3)، رياضيات (2)، علوم الطبيعة والحياة (1)، تاريخ وجغرافيا (2).</p>
+                    <h4 style="color: var(--text-main);">رابعة متوسط:</h4>
+                    <p style="font-size: 14px; color: var(--text-muted);">لغة عربية (5)، رياضيات (4)، علوم فيزيائية وتكنولوجيا (2)، لغة إنجليزية (2).</p>
+                </div>
+
+                <div class="announcement-card" style="border-color: #8b5cf6;">
+                    <h3 style="color: var(--primary); margin-bottom: 10px;">📘 مرحلة التعليم الثانوي: أولى ثانوي</h3>
+                    <h4 style="color: var(--text-main);">شعبة آداب:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">لغة عربية (5)، تاريخ وجغرافيا (3)، لغة إنجليزية (3)، علوم إسلامية (2).</p>
+                    <h4 style="color: var(--text-main);">شعبة علوم:</h4>
+                    <p style="font-size: 14px; color: var(--text-muted);">رياضيات (5)، علوم الطبيعة والحياة (4)، علوم فيزيائية وتكنولوجيا (4)، لغة عربية (2).</p>
+                </div>
+
+                <div class="announcement-card" style="border-color: #8b5cf6;">
+                    <h3 style="color: var(--primary); margin-bottom: 10px;">📙 مرحلة التعليم الثانوي: ثانية ثانوي</h3>
+                    <h4 style="color: var(--text-main);">شعبة رياضيات:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">رياضيات (7)، علوم فيزيائية وتكنولوجيا (5)، علوم الطبيعة والحياة (2)، لغة عربية (2).</p>
+                    <h4 style="color: var(--text-main);">شعبة تقني رياضي:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">رياضيات (6)، المادة التقنية (6)، علوم فيزيائية وتكنولوجيا (5)، لغة عربية (2).</p>
+                    <h4 style="color: var(--text-main);">شعبة علوم تجريبية:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">رياضيات (5)، علوم الطبيعة والحياة (5)، علوم فيزيائية وتكنولوجيا (5)، لغة عربية (2).</p>
+                    <h4 style="color: var(--text-main);">شعبة تسيير واقتصاد:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">المحاسبة والمالية (5)، رياضيات (4)، تاريخ وجغرافيا (3)، اقتصاد ومناجمنت (2).</p>
+                    <h4 style="color: var(--text-main);">شعبة آداب وفلسفة:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">لغة عربية (5)، تاريخ وجغرافيا (4)، فلسفة (3)، لغة إنجليزية (3).</p>
+                    <h4 style="color: var(--text-main);">شعبة لغات أجنبية:</h4>
+                    <p style="font-size: 14px; color: var(--text-muted);">لغة عربية (4)، اللغة الثالثة (4)، لغة فرنسية (3)، لغة إنجليزية (3).</p>
+                </div>
+
+                <div class="announcement-card" style="border-color: #8b5cf6;">
+                    <h3 style="color: var(--primary); margin-bottom: 10px;">📕 مرحلة التعليم الثانوي: ثالثة ثانوي</h3>
+                    <h4 style="color: var(--text-main);">شعبة رياضيات:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">رياضيات (7)، علوم فيزيائية وتكنولوجيا (6)، لغة عربية (3)، علوم الطبيعة والحياة (2).</p>
+                    <h4 style="color: var(--text-main);">شعبة تقني رياضي:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">رياضيات (6)، المادة التقنية (6)، علوم فيزيائية وتكنولوجيا (5)، لغة عربية (3).</p>
+                    <h4 style="color: var(--text-main);">شعبة علوم تجريبية:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">علوم الطبيعة والحياة (6)، رياضيات (5)، علوم فيزيائية وتكنولوجيا (5)، لغة عربية (3).</p>
+                    <h4 style="color: var(--text-main);">شعبة تسيير واقتصاد:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">المحاسبة والمالية (6)، رياضيات (4)، تاريخ وجغرافيا (4)، اقتصاد ومناجمنت (2).</p>
+                    <h4 style="color: var(--text-main);">شعبة آداب وفلسفة:</h4>
+                    <p style="margin-bottom: 10px; font-size: 14px; color: var(--text-muted);">لغة عربية (6)، فلسفة (6)، تاريخ وجغرافيا (4)، لغة إنجليزية (2).</p>
+                    <h4 style="color: var(--text-main);">شعبة لغات أجنبية:</h4>
+                    <p style="font-size: 14px; color: var(--text-muted);">اللغة الثالثة (5)، لغة إنجليزية (5)، لغة فرنسية (4)، لغة عربية (3).</p>
+                </div>
+
+                <div class="info-box" style="margin-top: 20px; text-align: center; background: rgba(219, 39, 119, 0.04);">
+                    🌹 <strong>زهرة المراسلة – معًا نحو النجاح</strong><br>
+                    بالتوفيق لجميع التلاميذ ❤️
+                </div>
+            </div>
+        </div>
+
+        <!-- صفحة قائمة الأسعار -->
+        <div id="page-prices" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>قائمة الأسعار والعروض الدراسية</h2>
+                </div>
+                <div class="info-box">
+                    إليك قائمة العروض والخدمات المتاحة وأسعارها:
+                </div>
+                <div id="studentPricesContainer">جاري التحميل...</div>
+            </div>
+        </div>
+
+        <!-- صفحة الأرضية الرقمية السحابية -->
+        <div id="page-digital-platform" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>الأرضية الرقمية - منصات الدروس والمنتديات</h2>
+                </div>
+                <div class="info-box">
+                    اختر مستواك الدراسي للانتقال المباشر إلى المنصة التعليمية الرسمية:
+                </div>
+                <p style="font-weight: bold; color: var(--primary); margin-bottom: 8px;">📚 أطوار التعليم المتوسط:</p>
+                <button class="btn-action" onclick="openCloudLink(window.cloudMiddleLink)">🎒 منصة التعليم المتوسط (1AM - 4AM)</button>
+                
+                <p style="font-weight: bold; color: var(--primary); margin: 20px 0 8px 0;">🎓 أطوار التعليم الثانوي:</p>
+                <button class="btn-action" style="background: var(--text-main);" onclick="openCloudLink(window.cloudAs1Link)">🎓 السنة الأولى ثانوي (1AS) - الدروس والمنتديات</button>
+                <button class="btn-action" style="background: var(--text-main);" onclick="openCloudLink(window.cloudAs2Link)">🎓 السنة الثانية ثانوي (2AS) - الدروس والمنتديات</button>
+                <button class="btn-action" style="background: var(--text-main);" onclick="openCloudLink(window.cloudAs3Link)">🎓 السنة الثالثة ثانوي (3AS) - الدروس والمنتديات</button>
+            </div>
+        </div>
+
+        <!-- صفحة طلب خدمة خاصة (توجيه مباشر للتواصل) -->
+        <div id="page-service-request" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>طلب خدمة خاصة</h2>
+                </div>
+                <div class="info-box" style="text-align: center; font-size: 16px; padding: 25px;">
+                    🌸 <strong>لطلب خدمة، يرجى التواصل عبر حساب فيسبوك أو الواتساب:</strong><br><br>
+                    نحن في خدمتك دائماً لمساعدتك في مسارك الدراسي ❤️
+                </div>
+                <button class="btn-action btn-whatsapp" onclick="playClickSound(); window.open('https://wa.me/213782645879', '_blank')">💬 التواصل عبر واتساب (0782645879)</button>
+                <button class="btn-action btn-facebook" onclick="openDirectLink('link_facebook')">📘 التواصل عبر صفحة فيسبوك الرسمية</button>
+            </div>
+        </div>
+
+        <!-- صفحة الخدمات الدراسية -->
+        <div id="page-study" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>الخدمات الدراسية</h2>
+                </div>
+                <button class="btn-action" onclick="playClickSound(); switchPage('page-self-assignments')">📝 الفروض (رزنامة التقويمات التكوينية)</button>
+                <button class="btn-action" onclick="playClickSound(); switchPage('page-digital-platform')">🌐 الأرضية الرقمية حسب المستويات الدراسية</button>
+                <button class="btn-action" onclick="playClickSound(); switchPage('page-faq')">❓ الأسئلة الشائعة</button>
+            </div>
+        </div>
+
+        <!-- صفحة الفروض السحابية -->
+        <div id="page-self-assignments" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>رزنامة التقويمات التكوينية للمتعلمين عن بعد</h2>
+                </div>
+                <div class="info-box" style="background: rgba(219, 39, 119, 0.08); border-right: 5px solid var(--primary);">
+                    ⚠️ <strong>ملاحظة هامة:</strong> المشاركة في هذه التقويمات تدخل في حساب نقطة المراقبة المستمرة لمعدل النجاح.
+                </div>
+                <div id="studentAssignmentsContainer">جاري تحميل الفروض سحابياً...</div>
+            </div>
+        </div>
+
+        <!-- صفحة التواصل -->
+        <div id="page-contact" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>التواصل مع زهرة المراسلة</h2>
+                </div>
+                <button class="btn-action btn-whatsapp" onclick="playClickSound(); window.open('https://wa.me/213782645879', '_blank')">💬 التواصل المباشر عبر واتساب (0782645879)</button>
+                <button class="btn-action btn-facebook" onclick="openDirectLink('link_facebook')">📘 صفحة فيسبوك الرسمية</button>
+            </div>
+        </div>
+
+        <!-- فرعي: الإعلانات -->
+        <div id="page-announcements" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>الإعلانات والتنبيهات الهامة</h2>
+                </div>
+                <div id="studentAnnouncementsContainer">جاري التحميل...</div>
+            </div>
+        </div>
+
+        <!-- فرعي: الأسئلة الشائعة -->
+        <div id="page-faq" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>الأسئلة الشائعة</h2>
+                </div>
+                <div id="studentFaqContainer">جاري التحميل...</div>
+            </div>
+        </div>
+
+        <!-- 6. لوحة تحكم المطور السحابية الشاملة (بدون تغيير كلمة السر وبدون طلبات) -->
+        <div id="page-developer" class="page">
+            <div class="card" style="border: 2px solid var(--primary);">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); switchPage('page-home')" title="رجوع للرئيسية">➜</button>
+                    <h2>🔒 لوحة تحكم حساب المطور - زهرة</h2>
+                </div>
+                <div class="info-box">
+                    أهلاً بك يا مطورنا. كلمة السر مرتبطة بمشروعها المستقل (Zahra-Password)، وباقي خدمات النشر تعمل على مشروعك الأساسي!
+                </div>
+
+                <!-- إعدادات الروابط والسنة والأرضية -->
+                <div style="margin-top: 15px; border-top: 2px dashed var(--border); padding-top: 20px;">
+                    <h3 style="color: var(--primary); margin-bottom: 12px;">🌐 إعدادات السنة وروابط المنصة (سحابي)</h3>
+                    <input type="text" id="devAcademicYear" class="form-control" placeholder="السنة الدراسية (مثال: 2026/2027)">
+                    <input type="text" id="devRegLink" class="form-control" placeholder="رابط التسجيل عبر الإنترنت (أو أقواس للمنع)">
+                    <input type="text" id="devAcceptLink" class="form-control" placeholder="رابط التأكد من التسجيل (أو أقواس للمنع)">
+                    <input type="text" id="devMiddleLink" class="form-control" placeholder="رابط منصة التعليم المتوسط (أو أقواس للمنع)">
+                    <input type="text" id="devAs1Link" class="form-control" placeholder="رابط السنة 1 ثانوي 1AS (أو أقواس للمنع)">
+                    <input type="text" id="devAs2Link" class="form-control" placeholder="رابط السنة 2 ثانوي 2AS (أو أقواس للمنع)">
+                    <input type="text" id="devAs3Link" class="form-control" placeholder="رابط السنة 3 ثانوي 3AS (أو أقواس للمنع)">
+                    <input type="text" id="devSummonLink" class="form-control" placeholder="رابط استخراج استدعاء (أو أقواس للمنع)">
+                    <input type="text" id="devElecExamLink" class="form-control" placeholder="رابط الفرض الالكتروني (أو أقواس للمنع)">
+                    <button class="btn-action" onclick="saveAppSettings()">حفظ وتحديث جميع الإعدادات سحابياً</button>
+                </div>
+
+                <!-- إدارة الفروض سحابياً -->
+                <div style="margin-top: 35px; border-top: 2px dashed var(--border); padding-top: 20px;">
+                    <h3 style="color: var(--primary); margin-bottom: 12px;">📝 إدارة الفروض والتقويمات (سحابي للعامة)</h3>
+                    <input type="text" id="devAssignTitle" class="form-control" placeholder="عنوان الفرض (مثال: فرض المراقبة رقم 01)...">
+                    <input type="text" id="devAssignStatus" class="form-control" placeholder="حالة الفرض (مثال: لم ينتهي بعد / انتهى موعد الفرض)...">
+                    <input type="text" id="devAssignStart" class="form-control" placeholder="تاريخ الانطلاق...">
+                    <input type="text" id="devAssignEnd" class="form-control" placeholder="تاريخ النهاية...">
+                    <button class="btn-action" onclick="publishAssignment()">➕ إضافة ونشر الفرض سحابياً</button>
+                    <div id="developerAssignmentsList" style="margin-top: 15px;"></div>
+                </div>
+
+                <!-- نشر الإعلانات سحابياً -->
+                <div style="margin-top: 35px; border-top: 2px dashed var(--border); padding-top: 20px;">
+                    <h3 style="color: var(--primary); margin-bottom: 12px;">📢 إدارة ونشر الإعلانات (سحابي للعامة)</h3>
+                    <input type="text" id="devAnnTitle" class="form-control" placeholder="عنوان الإعلان...">
+                    <textarea id="devAnnText" class="form-control" rows="3" placeholder="نص الإعلان..."></textarea>
+                    <button class="btn-action" onclick="publishAnnouncement()">نشر الإعلان سحابياً</button>
+                    <div id="developerAnnouncementsList" style="margin-top: 15px;"></div>
+                </div>
+
+                <!-- إدارة الأسئلة الشائعة سحابياً -->
+                <div style="margin-top: 35px; border-top: 2px dashed var(--border); padding-top: 20px;">
+                    <h3 style="color: var(--primary); margin-bottom: 12px;">❓ إدارة الأسئلة الشائعة (سحابي للعامة)</h3>
+                    <input type="text" id="devFaqQuestion" class="form-control" placeholder="السؤال...">
+                    <textarea id="devFaqAnswer" class="form-control" rows="3" placeholder="الجواب..."></textarea>
+                    <button class="btn-action" onclick="publishFaq()">إضافة السؤال الشائع سحابياً</button>
+                    <div id="developerFaqsList" style="margin-top: 15px;"></div>
+                </div>
+
+                <!-- إدارة الأسعار سحابياً -->
+                <div style="margin-top: 35px; border-top: 2px dashed var(--border); padding-top: 20px;">
+                    <h3 style="color: var(--primary); margin-bottom: 12px;">🏷️ إدارة قائمة الأسعار والعروض (سحابي للعامة)</h3>
+                    <input type="text" id="devOfferTitle" class="form-control" placeholder="اسم الخدمة أو العرض...">
+                    <input type="text" id="devOfferPrice" class="form-control" placeholder="السعر...">
+                    <button class="btn-action" onclick="publishOffer()">➕ إضافة العرض وسعره سحابياً</button>
+                    <div id="developerPricesList" style="margin-top: 15px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 7. الإعدادات -->
+        <div id="page-settings" class="page">
+            <div class="card">
+                <div class="page-header">
+                    <button class="back-arrow-btn" onclick="playClickSound(); goBack()" title="رجوع">➜</button>
+                    <h2>إعدادات المنصة</h2>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="setting-panel">
+                        <h4>المظهر</h4>
+                        <div class="setting-item">
+                            <div>
+                                <strong>الوضع المظلم</strong>
+                                <div style="font-size: 12px; color: var(--text-muted);">مظهر أنيق ومريح للعين</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <div>
+                                <strong>صوت النقر</strong>
+                                <div style="font-size: 12px; color: var(--text-muted);">أصوات خفيفة عند الضغط</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="soundToggle" onchange="toggleSound()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <div>
+                                <strong>ألوان زهور متقدمة</strong>
+                                <div style="font-size: 12px; color: var(--text-muted);">تفعيل المظهر الوردّي العصري</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="accentToggle" onchange="toggleAccentMode()" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="setting-panel">
+                        <h4>التنبيهات</h4>
+                        <div class="setting-item">
+                            <div>
+                                <strong>إشعارات المهمة</strong>
+                                <div style="font-size: 12px; color: var(--text-muted);">تنبيه عند ظهور أخبار جديدة</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="notificationToggle" onchange="toggleNotifications()" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <div class="setting-item">
+                            <div>
+                                <strong>الوصول السريع</strong>
+                                <div style="font-size: 12px; color: var(--text-muted);">فتح سريع لأقسام المنصة</div>
+                            </div>
+                            <label class="switch">
+                                <input type="checkbox" id="quickAccessToggle" onchange="toggleQuickAccess()" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+
+                        <button class="quick-action" onclick="playClickSound(); openLockModal()">
+                            🔐 فتح حساب المطور
+                        </button>
+                    </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- شريط التنقل السفلي -->
+    <nav class="bottom-nav">
+        <button class="nav-item active" onclick="playClickSound(); switchPage('page-home')" id="nav-home">
+            <span>🏠</span>
+            الرئيسية
+        </button>
+        <button class="nav-item" onclick="playClickSound(); switchPage('page-announcements')" id="nav-announcements">
+            <span>📢</span>
+            الإعلانات
+        </button>
+        <button class="nav-item" onclick="playClickSound(); switchPage('page-service-request')" id="nav-service">
+            <span>📥</span>
+            طلب خدمة
+        </button>
+        <button class="nav-item" onclick="playClickSound(); switchPage('page-digital-platform')" id="nav-platform">
+            <span>🌐</span>
+            الأرضية
+        </button>
+        <button class="nav-item" onclick="playClickSound(); switchPage('page-settings')" id="nav-settings">
+            <span>⚙️</span>
+            الإعدادات
+        </button>
+    </nav>
+
+    <footer class="app-footer">
+        زهرة المراسلة 🌸 - من أجل جيل متعلم ومستقبل أفضل © 2026
+    </footer>
+
+    <script>
+        function openLockModal() {
+            document.getElementById('passInput').value = '';
+            document.getElementById('passError').innerText = '';
+            document.getElementById('page-lock').style.display = 'flex';
+        }
+
+        function closeLockModal() {
+            document.getElementById('page-lock').style.display = 'none';
+        }
+
+        let historyStack = ['page-home'];
+        function switchPage(pageId) {
+            document.querySelectorAll('.page').forEach(p => {
+                p.classList.remove('active');
+                p.style.display = 'none';
+            });
+            let targetPage = document.getElementById(pageId);
+            if (targetPage) {
+                targetPage.classList.add('active');
+                targetPage.style.display = 'block';
+            }
+            if (historyStack[historyStack.length - 1] !== pageId) {
+                historyStack.push(pageId);
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function goBack() {
+            if (historyStack.length > 1) {
+                historyStack.pop();
+                let previousPage = historyStack[historyStack.length - 1];
+                document.querySelectorAll('.page').forEach(p => {
+                    p.classList.remove('active');
+                    p.style.display = 'none';
+                });
+                let targetPage = document.getElementById(previousPage);
+                if (targetPage) {
+                    targetPage.classList.add('active');
+                    targetPage.style.display = 'block';
+                }
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                switchPage('page-home');
+            }
+        }
+
+        let isDarkMode = localStorage.getItem('flower_dark') === 'true';
+        if (isDarkMode) document.body.classList.add('dark-mode');
+
+        let isSoundEnabled = localStorage.getItem('flower_click_sound') === 'true';
+
+        window.addEventListener('DOMContentLoaded', () => {
+            let darkToggle = document.getElementById('darkModeToggle');
+            if (darkToggle) darkToggle.checked = isDarkMode;
+
+            let soundToggle = document.getElementById('soundToggle');
+            if (soundToggle) soundToggle.checked = isSoundEnabled;
+
+            let accentToggle = document.getElementById('accentToggle');
+            let accentEnabled = localStorage.getItem('flower_accent') !== 'false';
+            if (accentToggle) accentToggle.checked = accentEnabled;
+            document.body.classList.toggle('premium-accent', accentEnabled);
+
+            let notificationToggle = document.getElementById('notificationToggle');
+            let notificationsEnabled = localStorage.getItem('flower_notifications') !== 'false';
+            if (notificationToggle) notificationToggle.checked = notificationsEnabled;
+
+            let quickAccessToggle = document.getElementById('quickAccessToggle');
+            let quickAccessEnabled = localStorage.getItem('flower_quick_access') !== 'false';
+            if (quickAccessToggle) quickAccessToggle.checked = quickAccessEnabled;
+        });
+
+        function toggleDarkMode() {
+            playClickSound();
+            let darkModeChecked = document.getElementById('darkModeToggle').checked;
+            if (darkModeChecked) {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('flower_dark', 'true');
+            } else {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('flower_dark', 'false');
+            }
+        }
+
+        function toggleAccentMode() {
+            playClickSound();
+            let accentChecked = document.getElementById('accentToggle').checked;
+            document.body.classList.toggle('premium-accent', accentChecked);
+            localStorage.setItem('flower_accent', accentChecked ? 'true' : 'false');
+        }
+
+        function toggleNotifications() {
+            playClickSound();
+            let notifyChecked = document.getElementById('notificationToggle').checked;
+            localStorage.setItem('flower_notifications', notifyChecked ? 'true' : 'false');
+        }
+
+        function toggleQuickAccess() {
+            playClickSound();
+            let quickChecked = document.getElementById('quickAccessToggle').checked;
+            localStorage.setItem('flower_quick_access', quickChecked ? 'true' : 'false');
+        }
+
+        function resetLocalSettings() {
+            playClickSound();
+            localStorage.removeItem('flower_dark');
+            localStorage.removeItem('flower_click_sound');
+            localStorage.removeItem('flower_accent');
+            localStorage.removeItem('flower_notifications');
+            localStorage.removeItem('flower_quick_access');
+            document.getElementById('darkModeToggle').checked = false;
+            document.getElementById('soundToggle').checked = false;
+            document.getElementById('accentToggle').checked = true;
+            document.getElementById('notificationToggle').checked = true;
+            document.getElementById('quickAccessToggle').checked = true;
+            document.body.classList.remove('dark-mode');
+            document.body.classList.add('premium-accent');
+            showCustomModal('✅ تم إعادة تعيين إعدادات المنصة إلى الوضع الافتراضي.');
+        }
+
+        function toggleSound() {
+            let soundChecked = document.getElementById('soundToggle').checked;
+            if (soundChecked) {
+                localStorage.setItem('flower_click_sound', 'true');
+                playClickSound();
+            } else {
+                localStorage.setItem('flower_click_sound', 'false');
+            }
+        }
+    </script>
+</body>
+</html>
